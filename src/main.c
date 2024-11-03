@@ -23,6 +23,15 @@ static void create_second_screen(void);
 static void create_third_screen(void);
 static void log_memory_status(void);
 
+#include "logo.h"
+
+static void create_logo(lv_obj_t *parent)
+{
+    lv_obj_t *img = lv_img_create(parent);
+    lv_img_set_src(img, &logo_img);
+    lv_obj_align(img, LV_ALIGN_TOP_MID, 0, 60);  // Adjust position as needed
+}
+
 // Memory monitoring function
 static void log_memory_status(void)
 {
@@ -68,11 +77,30 @@ static void start_screen_transition(lv_obj_t *target_screen)
     }
 
     LOG_INF("Transitioning from %p to %p", current_screen, target_screen);
-    
-    // Try simple transition first without animation
-    lv_scr_load(target_screen);
-}
 
+    // Determine direction based on screen order
+    lv_scr_load_anim_t anim_type;
+    
+    if (current_screen == main_screen && target_screen == second_screen) {
+        anim_type = LV_SCR_LOAD_ANIM_MOVE_LEFT;
+    }
+    else if (current_screen == second_screen && target_screen == third_screen) {
+        anim_type = LV_SCR_LOAD_ANIM_MOVE_LEFT;
+    }
+    else if (current_screen == second_screen && target_screen == main_screen) {
+        anim_type = LV_SCR_LOAD_ANIM_MOVE_RIGHT;
+    }
+    else if (current_screen == third_screen && target_screen == second_screen) {
+        anim_type = LV_SCR_LOAD_ANIM_MOVE_RIGHT;
+    }
+    else {
+        // Default animation for any other transitions
+        anim_type = LV_SCR_LOAD_ANIM_FADE_ON;
+    }
+
+    // Perform the animated transition
+    lv_scr_load_anim(target_screen, anim_type, 300, 0, false);
+}
 
 static void switch_screen_cb(lv_event_t *e)
 {
@@ -176,8 +204,10 @@ static void create_main_screen(void)
         LOG_ERR("Failed to create title label");
         return;
     }
+
+    create_logo(main_screen);
     
-    lv_label_set_text(title, "Main Screen");
+    lv_label_set_text(title, "Zephyr and LVGL Demo");
     lv_obj_add_style(title, &style_title, 0);
     lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 20);
 
