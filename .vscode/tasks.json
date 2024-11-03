@@ -1,0 +1,26 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "West Build",
+            "type": "shell",
+            "command": "west build -b stm32f746g_disco .",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "West Flash",
+            "type": "shell",
+            "command": "west flash",
+            "group": "build"
+        },
+        {
+            "label": "West Clean",
+            "type": "shell",
+            "command": "west build -t pristine",
+            "group": "build"
+        }
+    ]
+}

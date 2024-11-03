@@ -1,0 +1,21 @@
+﻿# Build directory
+/build/
+
+# VS Code settings (optional, you might want to share these with your team)
+#.vscode/
+
+# Python virtual environment
+__pycache__/
+*.pyc
+
+# Binary files
+*.o
+*.a
+*.bin
+*.elf
+*.hex
+*.map
+
+# Backup files
+*~
+*.swp

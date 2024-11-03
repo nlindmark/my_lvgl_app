@@ -1,0 +1,19 @@
+{
+    "configurations": [
+        {
+            "name": "Zephyr",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/../zephyr/include/**",
+                "${env:ZEPHYR_BASE}/include/**",
+                "${workspaceFolder}/build/zephyr/include/generated/**"
+            ],
+            "defines": [],
+            "compilerPath": "${env:ZEPHYR_SDK_INSTALL_DIR}/arm-zephyr-eabi/bin/arm-zephyr-eabi-gcc.exe",
+            "cStandard": "c11",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "gcc-arm"
+        }
+    ],
+    "version": 4
+}

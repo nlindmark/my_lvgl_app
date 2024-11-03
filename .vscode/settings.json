@@ -1,0 +1,15 @@
+{
+    "cmake.configureOnOpen": false,
+    "files.associations": {
+        "*.h": "c",
+        "*.c": "c"
+    }
+},
+"python.defaultInterpreterPath": "C:\\Users\\nili\\anaconda3\\envs\\zephyr-env-312\\python.exe",
+"terminal.integrated.defaultProfile.windows": "PowerShell",
+"terminal.integrated.profiles.windows": {
+    "PowerShell": {
+        "source": "PowerShell",
+        "args": ["-NoExit", "-Command", "conda activate zephyr-env-312"]
+    }
+}
