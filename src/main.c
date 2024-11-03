@@ -53,7 +53,6 @@ static void init_theme_styles(void)
     lv_style_set_text_color(&style_title, lv_color_make(40, 40, 40));
 }
 
-// Animation for screen switching
 static void start_screen_transition(lv_obj_t *target_screen)
 {
     if (target_screen == NULL) {
@@ -70,20 +69,18 @@ static void start_screen_transition(lv_obj_t *target_screen)
 
     LOG_INF("Transitioning from %p to %p", current_screen, target_screen);
     
-    // First try simple screen load
+    // Try simple transition first without animation
     lv_scr_load(target_screen);
-    
-    // If basic transition works, we can enable animation later
-    // lv_scr_load_anim(target_screen, LV_SCR_LOAD_ANIM_MOVE_LEFT, 500, 0, false);
 }
+
 
 static void switch_screen_cb(lv_event_t *e)
 {
-    log_memory_status();  // Log memory status before switch
-    
     lv_obj_t *target = (lv_obj_t *)lv_event_get_user_data(e);
     
     LOG_INF("Switch screen requested to target %p", target);
+    LOG_INF("Current screen pointers - main: %p, second: %p, third: %p", 
+            main_screen, second_screen, third_screen);
 
     // Create screens just before switching to them
     if (target == second_screen && second_screen == NULL) {
@@ -93,7 +90,8 @@ static void switch_screen_cb(lv_event_t *e)
             LOG_ERR("Failed to create second screen");
             return;
         }
-        target = second_screen;  // Update target with newly created screen
+        LOG_INF("Second screen created at %p", second_screen);
+        target = second_screen;
     }
     else if (target == third_screen && third_screen == NULL) {
         LOG_INF("Creating third screen on demand");
@@ -102,18 +100,14 @@ static void switch_screen_cb(lv_event_t *e)
             LOG_ERR("Failed to create third screen");
             return;
         }
-        target = third_screen;  // Update target with newly created screen
-    }
-    
-    // Verify target screen exists before transition
-    if (target == NULL) {
-        LOG_ERR("Target screen is NULL after creation attempt");
-        return;
+        LOG_INF("Third screen created at %p", third_screen);
+        target = third_screen;
     }
 
     LOG_INF("Starting screen transition");
     start_screen_transition(target);
 }
+
 
 static void create_spinning_label(lv_obj_t *parent)
 {
