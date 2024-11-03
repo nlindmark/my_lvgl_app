@@ -76,14 +76,14 @@ static void start_screen_transition(lv_obj_t *target_screen)
 
 static void switch_screen_cb(lv_event_t *e)
 {
-    lv_obj_t *target = (lv_obj_t *)lv_event_get_user_data(e);
+    lv_obj_t **target_ptr = (lv_obj_t **)lv_event_get_user_data(e);
     
-    LOG_INF("Switch screen requested to target %p", target);
+    LOG_INF("Switch screen requested, target_ptr: %p", target_ptr);
     LOG_INF("Current screen pointers - main: %p, second: %p, third: %p", 
             main_screen, second_screen, third_screen);
 
     // Create screens just before switching to them
-    if (target == second_screen && second_screen == NULL) {
+    if (target_ptr == &second_screen && second_screen == NULL) {
         LOG_INF("Creating second screen on demand");
         create_second_screen();
         if (second_screen == NULL) {
@@ -91,9 +91,8 @@ static void switch_screen_cb(lv_event_t *e)
             return;
         }
         LOG_INF("Second screen created at %p", second_screen);
-        target = second_screen;
     }
-    else if (target == third_screen && third_screen == NULL) {
+    else if (target_ptr == &third_screen && third_screen == NULL) {
         LOG_INF("Creating third screen on demand");
         create_third_screen();
         if (third_screen == NULL) {
@@ -101,11 +100,17 @@ static void switch_screen_cb(lv_event_t *e)
             return;
         }
         LOG_INF("Third screen created at %p", third_screen);
-        target = third_screen;
     }
 
-    LOG_INF("Starting screen transition");
-    start_screen_transition(target);
+    // Get the actual screen pointer
+    lv_obj_t *target_screen = *target_ptr;
+    if (target_screen == NULL) {
+        LOG_ERR("Target screen is NULL after creation attempt");
+        return;
+    }
+
+    LOG_INF("Starting screen transition to screen at %p", target_screen);
+    start_screen_transition(target_screen);
 }
 
 
@@ -188,8 +193,7 @@ static void create_main_screen(void)
     lv_obj_align(btn, LV_ALIGN_BOTTOM_MID, 0, -20);
     
     // Store second_screen pointer separately for the callback
-    lv_obj_t **screen_ptr = &second_screen;
-    lv_obj_add_event_cb(btn, switch_screen_cb, LV_EVENT_CLICKED, screen_ptr);
+    lv_obj_add_event_cb(btn, switch_screen_cb, LV_EVENT_CLICKED, &second_screen);
 
     lv_obj_t *btn_label = lv_label_create(btn);
     if (btn_label == NULL) {
