@@ -1,156 +1,237 @@
-/*
- * Copyright (c) 2018 Jan Van Winkel <jan.van_winkel@dxplore.eu>
- *
- * SPDX-License-Identifier: Apache-2.0
- */
-
-#include <zephyr/device.h>
-#include <zephyr/devicetree.h>
-#include <zephyr/drivers/display.h>
-#include <zephyr/drivers/gpio.h>
-#include <lvgl.h>
-#include <stdio.h>
-#include <string.h>
 #include <zephyr/kernel.h>
-#include <lvgl_input_device.h>
+#include <zephyr/device.h>
+#include <zephyr/drivers/display.h>
+#include <lvgl.h>
 
-#define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+
+#define LOG_LEVEL LOG_LEVEL_INF
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(app);
 
-static uint32_t count;
 
-#ifdef CONFIG_GPIO
-static struct gpio_dt_spec button_gpio = GPIO_DT_SPEC_GET_OR(
-		DT_ALIAS(sw0), gpios, {0});
-static struct gpio_callback button_callback;
 
-static void button_isr_callback(const struct device *port,
-				struct gpio_callback *cb,
-				uint32_t pins)
+static lv_style_t style_btn;
+static lv_style_t style_title;
+
+static lv_obj_t *main_screen = NULL;
+static lv_obj_t *second_screen = NULL;
+static lv_obj_t *third_screen = NULL;
+
+// Function declarations
+static void switch_screen_cb(lv_event_t *e);
+static void create_main_screen(void);
+static void create_second_screen(void);
+static void create_third_screen(void);
+
+
+// Custom theme setup
+static void init_theme_styles(void)
 {
-	ARG_UNUSED(port);
-	ARG_UNUSED(cb);
-	ARG_UNUSED(pins);
+    // Initialize button style
+    lv_style_init(&style_btn);
+    lv_style_set_bg_color(&style_btn, lv_color_make(0, 100, 180));
+    lv_style_set_bg_grad_color(&style_btn, lv_color_make(0, 150, 220));
+    lv_style_set_bg_grad_dir(&style_btn, LV_GRAD_DIR_VER);
+    lv_style_set_radius(&style_btn, 10);
+    lv_style_set_shadow_width(&style_btn, 5);
+    lv_style_set_shadow_ofs_y(&style_btn, 5);
+    lv_style_set_shadow_opa(&style_btn, LV_OPA_50);
 
-	count = 0;
+    // Initialize title style
+    lv_style_init(&style_title);
+	lv_style_set_text_font(&style_title, &lv_font_montserrat_14);
+	//lv_style_set_text_font_scale(&style_title, 150);  // 150% scaling
+    lv_style_set_text_color(&style_title, lv_color_make(40, 40, 40));
 }
-#endif /* CONFIG_GPIO */
 
-#ifdef CONFIG_LV_Z_ENCODER_INPUT
-static const struct device *lvgl_encoder =
-	DEVICE_DT_GET(DT_COMPAT_GET_ANY_STATUS_OKAY(zephyr_lvgl_encoder_input));
-#endif /* CONFIG_LV_Z_ENCODER_INPUT */
-
-#ifdef CONFIG_LV_Z_KEYPAD_INPUT
-static const struct device *lvgl_keypad =
-	DEVICE_DT_GET(DT_COMPAT_GET_ANY_STATUS_OKAY(zephyr_lvgl_keypad_input));
-#endif /* CONFIG_LV_Z_KEYPAD_INPUT */
-
-static void lv_btn_click_callback(lv_event_t *e)
+// Animation for screen switching
+static void start_screen_transition(lv_obj_t *target_screen)
 {
-	ARG_UNUSED(e);
-
-	count = 0;
+    lv_scr_load_anim(target_screen, LV_SCR_LOAD_ANIM_MOVE_LEFT, 500, 0, false);
 }
 
-int main(void)
+
+
+static void switch_screen_cb(lv_event_t *e)
 {
-	char count_str[11] = {0};
-	const struct device *display_dev;
-	lv_obj_t *hello_world_label;
-	lv_obj_t *count_label;
+    lv_obj_t *target = (lv_obj_t *)lv_event_get_user_data(e);
+    
+    LOG_INF("Switch screen requested");
 
-	display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
-	if (!device_is_ready(display_dev)) {
-		LOG_ERR("Device not ready, aborting test");
-		return 0;
-	}
+    // Create screens just before switching to them
+    if (target == second_screen && second_screen == NULL) {
+        LOG_INF("Creating second screen on demand");
+        create_second_screen();
+    }
+    else if (target == third_screen && third_screen == NULL) {
+        LOG_INF("Creating third screen on demand");
+        create_third_screen();
+    }
+    
+    LOG_INF("Starting screen transition");
+    start_screen_transition(target);
+}
 
-#ifdef CONFIG_GPIO
-	if (gpio_is_ready_dt(&button_gpio)) {
-		int err;
 
-		err = gpio_pin_configure_dt(&button_gpio, GPIO_INPUT);
-		if (err) {
-			LOG_ERR("failed to configure button gpio: %d", err);
-			return 0;
-		}
+static void create_spinning_label(lv_obj_t *parent)
+{
+    lv_obj_t *label = lv_label_create(parent);
+    lv_label_set_text(label, "*");
+    lv_obj_center(label);
 
-		gpio_init_callback(&button_callback, button_isr_callback,
-				   BIT(button_gpio.pin));
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, label);
+    // Use y position animation instead of rotation
+    lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
+    lv_anim_set_values(&a, lv_obj_get_y(label) - 20, lv_obj_get_y(label) + 20);  // Move up and down
+    lv_anim_set_time(&a, 1000);  // 1 second
+    lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_set_playback_time(&a, 1000);  // Smooth return
+    lv_anim_start(&a);
+}
+// Create main screen
+static void create_main_screen(void)
+{
+    main_screen = lv_obj_create(NULL);
 
-		err = gpio_add_callback(button_gpio.port, &button_callback);
-		if (err) {
-			LOG_ERR("failed to add button callback: %d", err);
-			return 0;
-		}
+    // Title
+    lv_obj_t *title = lv_label_create(main_screen);
+    lv_label_set_text(title, "Main Screen");
+    lv_obj_add_style(title, &style_title, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 20);
 
-		err = gpio_pin_interrupt_configure_dt(&button_gpio,
-						      GPIO_INT_EDGE_TO_ACTIVE);
-		if (err) {
-			LOG_ERR("failed to enable button callback: %d", err);
-			return 0;
-		}
-	}
-#endif /* CONFIG_GPIO */
+    // Navigation button
+    lv_obj_t *btn = lv_btn_create(main_screen);
+    lv_obj_add_style(btn, &style_btn, 0);
+    lv_obj_set_size(btn, 140, 50);
+    lv_obj_align(btn, LV_ALIGN_BOTTOM_MID, 0, -20);
+    lv_obj_add_event_cb(btn, switch_screen_cb, LV_EVENT_CLICKED, second_screen);
 
-#ifdef CONFIG_LV_Z_ENCODER_INPUT
-	lv_obj_t *arc;
-	lv_group_t *arc_group;
+    lv_obj_t *btn_label = lv_label_create(btn);
+    lv_label_set_text(btn_label, "Next Screen");
+    lv_obj_center(btn_label);
 
-	arc = lv_arc_create(lv_scr_act());
-	lv_obj_align(arc, LV_ALIGN_CENTER, 0, -15);
-	lv_obj_set_size(arc, 150, 150);
+    // Add spinning animation
+    create_spinning_label(main_screen);
+}
 
-	arc_group = lv_group_create();
-	lv_group_add_obj(arc_group, arc);
-	lv_indev_set_group(lvgl_input_get_indev(lvgl_encoder), arc_group);
-#endif /* CONFIG_LV_Z_ENCODER_INPUT */
+// Create second screen with slider
+static void create_second_screen(void)
+{
+    second_screen = lv_obj_create(NULL);
 
-#ifdef CONFIG_LV_Z_KEYPAD_INPUT
-	lv_obj_t *btn_matrix;
-	lv_group_t *btn_matrix_group;
-	static const char *const btnm_map[] = {"1", "2", "3", "4", ""};
+    // Title
+    lv_obj_t *title = lv_label_create(second_screen);
+    lv_label_set_text(title, "Second Screen");
+    lv_obj_add_style(title, &style_title, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 20);
 
-	btn_matrix = lv_btnmatrix_create(lv_scr_act());
-	lv_obj_align(btn_matrix, LV_ALIGN_CENTER, 0, 70);
-	lv_btnmatrix_set_map(btn_matrix, (const char **)btnm_map);
-	lv_obj_set_size(btn_matrix, 100, 50);
+    // Create a slider
+    lv_obj_t *slider = lv_slider_create(second_screen);
+    lv_obj_set_size(slider, 200, 10);
+    lv_obj_center(slider);
+    
+    // Navigation buttons
+    lv_obj_t *btn_prev = lv_btn_create(second_screen);
+    lv_obj_add_style(btn_prev, &style_btn, 0);
+    lv_obj_set_size(btn_prev, 100, 50);
+    lv_obj_align(btn_prev, LV_ALIGN_BOTTOM_LEFT, 20, -20);
+    lv_obj_add_event_cb(btn_prev, switch_screen_cb, LV_EVENT_CLICKED, main_screen);
 
-	btn_matrix_group = lv_group_create();
-	lv_group_add_obj(btn_matrix_group, btn_matrix);
-	lv_indev_set_group(lvgl_input_get_indev(lvgl_keypad), btn_matrix_group);
-#endif /* CONFIG_LV_Z_KEYPAD_INPUT */
+    lv_obj_t *btn_next = lv_btn_create(second_screen);
+    lv_obj_add_style(btn_next, &style_btn, 0);
+    lv_obj_set_size(btn_next, 100, 50);
+    lv_obj_align(btn_next, LV_ALIGN_BOTTOM_RIGHT, -20, -20);
+    lv_obj_add_event_cb(btn_next, switch_screen_cb, LV_EVENT_CLICKED, third_screen);
 
-	if (IS_ENABLED(CONFIG_LV_Z_POINTER_INPUT)) {
-		lv_obj_t *hello_world_button;
+    lv_obj_t *label_prev = lv_label_create(btn_prev);
+    lv_label_set_text(label_prev, "Previous");
+    lv_obj_center(label_prev);
 
-		hello_world_button = lv_btn_create(lv_scr_act());
-		lv_obj_align(hello_world_button, LV_ALIGN_CENTER, 0, -15);
-		lv_obj_add_event_cb(hello_world_button, lv_btn_click_callback, LV_EVENT_CLICKED,
-				    NULL);
-		hello_world_label = lv_label_create(hello_world_button);
-	} else {
-		hello_world_label = lv_label_create(lv_scr_act());
-	}
+    lv_obj_t *label_next = lv_label_create(btn_next);
+    lv_label_set_text(label_next, "Next");
+    lv_obj_center(label_next);
+}
 
-	lv_label_set_text(hello_world_label, "Hello world!");
-	lv_obj_align(hello_world_label, LV_ALIGN_CENTER, 0, 0);
+// Create third screen with chart
+static void create_third_screen(void)
+{
+    third_screen = lv_obj_create(NULL);
 
-	count_label = lv_label_create(lv_scr_act());
-	lv_obj_align(count_label, LV_ALIGN_BOTTOM_MID, 0, 0);
+    // Title
+    lv_obj_t *title = lv_label_create(third_screen);
+    lv_label_set_text(title, "Third Screen");
+    lv_obj_add_style(title, &style_title, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 20);
 
-	lv_task_handler();
-	display_blanking_off(display_dev);
+    // Create a chart
+    lv_obj_t *chart = lv_chart_create(third_screen);
+    lv_obj_set_size(chart, 200, 150);
+    lv_obj_center(chart);
+    lv_chart_set_type(chart, LV_CHART_TYPE_LINE);
+    
+    lv_chart_series_t *ser = lv_chart_add_series(chart, lv_palette_main(LV_PALETTE_RED), LV_CHART_AXIS_PRIMARY_Y);
+    
+    // Set some sample data
+    for(int i = 0; i < 10; i++) {
+        lv_chart_set_next_value(chart, ser, lv_rand(10, 90));
+    }
+    
+    // Navigation button
+    lv_obj_t *btn = lv_btn_create(third_screen);
+    lv_obj_add_style(btn, &style_btn, 0);
+    lv_obj_set_size(btn, 140, 50);
+    lv_obj_align(btn, LV_ALIGN_BOTTOM_MID, 0, -20);
+    lv_obj_add_event_cb(btn, switch_screen_cb, LV_EVENT_CLICKED, main_screen);
 
-	while (1) {
-		if ((count % 100) == 0U) {
-			sprintf(count_str, "%d", count/100U);
-			lv_label_set_text(count_label, count_str);
-		}
-		lv_task_handler();
-		++count;
-		k_sleep(K_MSEC(10));
-	}
+    lv_obj_t *btn_label = lv_label_create(btn);
+    lv_label_set_text(btn_label, "Back to Start");
+    lv_obj_center(btn_label);
+}
+
+
+static void create_screens_on_demand(void)
+{
+    // Only create main screen initially
+    LOG_INF("Creating main screen");
+    create_main_screen();
+}
+
+void main(void)
+{
+    const struct device *display_dev;
+
+    LOG_INF("Starting application...");
+    k_msleep(1000);  // 1 second delay to ensure we see initial logs
+
+    display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
+    if (!device_is_ready(display_dev)) {
+        LOG_ERR("Device %s not ready", display_dev->name);
+        return;
+    }
+
+    LOG_INF("Initializing styles...");
+    init_theme_styles();
+
+    LOG_INF("Creating initial screen");
+    create_screens_on_demand();  // Only creates main screen
+
+    LOG_INF("Loading main screen...");
+    lv_scr_load(main_screen);
+
+    LOG_INF("Entering main loop...");
+    display_blanking_off(display_dev);
+
+    while (1) {
+        lv_timer_handler();
+        k_msleep(5);  // 5ms delay between updates
+        
+        // Optional: Add some debug logging periodically
+        static int count = 0;
+        if (++count >= 200) {  // Every second (200 * 5ms = 1000ms)
+            LOG_INF("Main loop running...");
+            count = 0;
+        }
+    }
 }

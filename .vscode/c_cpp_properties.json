@@ -4,11 +4,27 @@
             "name": "Zephyr",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/../zephyr/include/**",
                 "${env:ZEPHYR_BASE}/include/**",
-                "${workspaceFolder}/build/zephyr/include/generated/**"
+                "${env:ZEPHYR_BASE}/include/zephyr/**",
+                "${workspaceFolder}/build/zephyr/include/generated/**",
+                "${env:ZEPHYR_SDK_INSTALL_DIR}/arm-zephyr-eabi/include/**",
+                "${env:ZEPHYR_SDK_INSTALL_DIR}/arm-zephyr-eabi/arm-zephyr-eabi/include/**",
+                "${env:ZEPHYR_BASE}/lib/libc/minimal/include",
+                "${env:ZEPHYR_BASE}/soc/arm/st_stm32/stm32f7",
+                "${workspaceFolder}/../modules/hal/cmsis/CMSIS/Core/Include",
+                "${workspaceFolder}/../modules/hal/stm32/stm32cube/stm32f7xx/drivers/include",
+                "${workspaceFolder}/../modules/lib/gui/lvgl/**"
             ],
-            "defines": [],
+            "defines": [
+                "STM32F746xx",
+                "__ZEPHYR__=1",
+                "_POSIX_C_SOURCE=200809",
+                "_XOPEN_SOURCE=600",
+                "__LINUX_ERRNO_EXTENSIONS__",
+                "__PROGRAM_START",
+                "__ZEPHYR_SUPERVISOR__",
+                "__ZEPHYR_USER__"
+            ],
             "compilerPath": "${env:ZEPHYR_SDK_INSTALL_DIR}/arm-zephyr-eabi/bin/arm-zephyr-eabi-gcc.exe",
             "cStandard": "c11",
             "cppStandard": "c++14",

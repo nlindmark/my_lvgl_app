@@ -21,6 +21,12 @@
             "type": "shell",
             "command": "west build -t pristine",
             "group": "build"
+        },
+        {
+            "label": "Serial Monitor",
+            "type": "shell",
+            "command": "python -m serial.tools.miniterm COM3 115200",
+            "problemMatcher": []
         }
     ]
 }
