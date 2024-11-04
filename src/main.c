@@ -2,6 +2,8 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/display.h>
 #include <lvgl.h>
+#include "fonts/smiley_font.h"
+
 
 #define LOG_LEVEL LOG_LEVEL_INF
 #include <zephyr/logging/log.h>
@@ -142,6 +144,7 @@ static void switch_screen_cb(lv_event_t *e)
 }
 
 
+
 static void create_spinning_label(lv_obj_t *parent)
 {
     if (parent == NULL) {
@@ -155,7 +158,13 @@ static void create_spinning_label(lv_obj_t *parent)
         return;
     }
 
-    lv_label_set_text(label, "*");
+    // Use the custom font
+    lv_obj_set_style_text_font(label, &smiley_font, 0);
+    lv_label_set_text(label, "☺");
+    
+    // Optional: make it yellow
+    lv_obj_set_style_text_color(label, lv_color_make(255, 200, 0), 0);
+    
     lv_obj_center(label);
 
     // Create x position animation
@@ -180,6 +189,7 @@ static void create_spinning_label(lv_obj_t *parent)
     lv_anim_set_repeat_count(&a_y, LV_ANIM_REPEAT_INFINITE);
     lv_anim_set_playback_time(&a_y, 800);
 
+    // Start both animations
     lv_anim_start(&a_x);
     lv_anim_start(&a_y);
 }
